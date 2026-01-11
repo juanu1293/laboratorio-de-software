@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import apiService from "./apiService";
 import UserMenu from "./UserMenu";
-import "./Payments.css"; 
+import "./Payments.css";
 
 const Payments = () => {
   const [cards, setCards] = useState([]);
@@ -19,15 +19,16 @@ const Payments = () => {
   const [newCardExpDate, setNewCardExpDate] = useState("");
   const [newCardCVV, setNewCardCVV] = useState("");
   const [newCardName, setNewCardName] = useState("");
-  
+
   const [rechargeAmount, setRechargeAmount] = useState("");
   const [formError, setFormError] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
-  
+
   const [userInfo, setUserInfo] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
-  const logoUrl = "https://i.pinimg.com/736x/60/48/b4/6048b4ae7f74724389d345767e8061a0.jpg";
+  const logoUrl =
+    "https://i.pinimg.com/736x/60/48/b4/6048b4ae7f74724389d345767e8061a0.jpg";
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("es-CO", {
@@ -41,11 +42,14 @@ const Payments = () => {
     if (!num || num.length <= 4) return num;
     return `**** **** **** ${num.slice(-4)}`;
   };
-  
+
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
-      const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-      const userData = localStorage.getItem("userData") || sessionStorage.getItem("userData");
+      const authToken =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const userData =
+        localStorage.getItem("userData") || sessionStorage.getItem("userData");
 
       if (authToken && userData) {
         try {
@@ -119,13 +123,13 @@ const Payments = () => {
   const handleCardNumChange = (e) => {
     // Eliminamos todo lo que no sea número
     const rawValue = e.target.value.replace(/\D/g, "");
-    
+
     // Limitamos a 16 dígitos reales
     if (rawValue.length > 16) return;
 
     // Expresión regular: agrega espacio cada 4 dígitos (si hay más números después)
     const formattedValue = rawValue.replace(/(\d{4})(?=\d)/g, "$1 ");
-    
+
     setNewCardNum(formattedValue);
   };
 
@@ -133,25 +137,31 @@ const Payments = () => {
   const handleDateChange = (e) => {
     // Eliminamos todo lo que no sea número
     const rawValue = e.target.value.replace(/\D/g, "");
-    
+
     // Limitamos a 4 dígitos (MMYY)
     if (rawValue.length > 4) return;
 
     let formattedValue = rawValue;
-    
+
     // Si escribió más de 2 números, ponemos el slash
     if (rawValue.length >= 3) {
       formattedValue = `${rawValue.slice(0, 2)}/${rawValue.slice(2)}`;
     }
-    
+
     setNewCardExpDate(formattedValue);
   };
 
   const handleAddCardSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validación: Quitamos banco
-    if (!newCardNum || !newCardType || !newCardExpDate || !newCardCVV || !newCardName) {
+    if (
+      !newCardNum ||
+      !newCardType ||
+      !newCardExpDate ||
+      !newCardCVV ||
+      !newCardName
+    ) {
       setFormError("Todos los campos son obligatorios.");
       return;
     }
@@ -176,7 +186,7 @@ const Payments = () => {
         cvv: newCardCVV,
         nombrepersona: newCardName,
       });
-      
+
       setCards([...cards, newCard]);
       setFormLoading(false);
       closeModal();
@@ -206,7 +216,9 @@ const Payments = () => {
 
       setCards(
         cards.map((card) =>
-          card.idtarjeta === updatedCard.idtarjeta ? { ...card, ...updatedCard } : card
+          card.idtarjeta === updatedCard.idtarjeta
+            ? { ...card, ...updatedCard }
+            : card
         )
       );
       setFormLoading(false);
@@ -244,22 +256,32 @@ const Payments = () => {
           <div key={card.idtarjeta} className="payment-card">
             <div className="card-header">
               <span className="card-name">{card.nombrepersona}</span>
-              <span className={`card-type-badge ${card.tipo === 'credito' ? 'type-credit' : 'type-debit'}`}>
-                {card.tipo === 'credito' ? 'Crédito' : 'Débito'}
+              <span
+                className={`card-type-badge ${
+                  card.tipo === "credito" ? "type-credit" : "type-debit"
+                }`}
+              >
+                {card.tipo === "credito" ? "Crédito" : "Débito"}
               </span>
             </div>
             <div className="card-body">
-              <div className="card-number">{maskCardNumber(card.numtarjeta)}</div>
-              
+              <div className="card-number">
+                {maskCardNumber(card.numtarjeta)}
+              </div>
+
               {/* Podemos mostrar la fecha de expiración pequeña */}
-              <div style={{fontSize: '0.8rem', color: '#777', marginBottom: '10px'}}>
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#777",
+                  marginBottom: "10px",
+                }}
+              >
                 Expira: {card.fecha_expiracion}
               </div>
 
               <div className="card-balance-label">Saldo Disponible</div>
-              <div className="card-balance">
-                {formatCurrency(card.saldo)}
-              </div>
+              <div className="card-balance">{formatCurrency(card.saldo)}</div>
             </div>
             <div className="card-footer">
               <button
@@ -280,7 +302,11 @@ const Payments = () => {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <div className="logo-container" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
+        <div
+          className="logo-container"
+          onClick={() => navigate("/")}
+          style={{ cursor: "pointer" }}
+        >
           <img src={logoUrl} alt="VivaSky Logo" className="logo-image" />
           <span className="logo-text">VivaSky</span>
         </div>
@@ -298,7 +324,11 @@ const Payments = () => {
         <div className="payments-header">
           <h1>Saldo y Pagos</h1>
           <p>Gestiona tus tarjetas y recarga tu saldo para compras futuras.</p>
-          <button className="add-card-btn" onClick={openAddModal} disabled={formLoading}>
+          <button
+            className="add-card-btn"
+            onClick={openAddModal}
+            disabled={formLoading}
+          >
             <span className="icon-add">+</span> Agregar Nueva Tarjeta
           </button>
         </div>
@@ -313,14 +343,21 @@ const Payments = () => {
       {/* --- MODAL AGREGAR TARJETA --- */}
       {showAddModal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="login-container modal-form" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>×</button>
+          <div
+            className="login-container modal-form"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="modal-close" onClick={closeModal}>
+              ×
+            </button>
             <h2>Agregar Nueva Tarjeta</h2>
-            <p className="modal-subtitle">Ingresa los datos de tu tarjeta de crédito o débito.</p>
-            
+            <p className="modal-subtitle">
+              Ingresa los datos de tu tarjeta de crédito o débito.
+            </p>
+
             <form className="login-form" onSubmit={handleAddCardSubmit}>
               {formError && <div className="error-message">{formError}</div>}
-              
+
               <div className="input-group">
                 <label>Número de Tarjeta</label>
                 <input
@@ -331,7 +368,7 @@ const Payments = () => {
                   required
                 />
               </div>
-              
+
               <div className="input-group">
                 <label>Nombre en la Tarjeta</label>
                 <input
@@ -345,10 +382,10 @@ const Payments = () => {
 
               {/* Fila para Tipo y Fecha (Ya no está el Banco) */}
               <div className="form-row">
-                 <div className="input-group">
+                <div className="input-group">
                   <label>Tipo</label>
-                  <select 
-                    value={newCardType} 
+                  <select
+                    value={newCardType}
                     onChange={(e) => setNewCardType(e.target.value)}
                     required
                   >
@@ -371,23 +408,36 @@ const Payments = () => {
 
               {/* CVV solo en una fila o ajustado */}
               <div className="input-group">
-                  <label>CVV (3 dígitos)</label>
-                  <input
-                    type="text"
-                    placeholder="123"
-                    value={newCardCVV}
-                    onChange={(e) => setNewCardCVV(e.target.value)}
-                    maxLength="3" // AHORA MAXIMO 3
-                    required
-                  />
-                </div>
+                <label>CVV (3 dígitos)</label>
+                <input
+                  type="text"
+                  placeholder="123"
+                  value={newCardCVV}
+                  onChange={(e) => setNewCardCVV(e.target.value)}
+                  maxLength="3" // AHORA MAXIMO 3
+                  required
+                />
+              </div>
 
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={closeModal} disabled={formLoading}>
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={closeModal}
+                  disabled={formLoading}
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="login-btn" disabled={formLoading}>
-                  {formLoading ? <div className="spinner"></div> : "Guardar Tarjeta"}
+                <button
+                  type="submit"
+                  className="login-btn"
+                  disabled={formLoading}
+                >
+                  {formLoading ? (
+                    <div className="spinner"></div>
+                  ) : (
+                    "Guardar Tarjeta"
+                  )}
                 </button>
               </div>
             </form>
@@ -397,42 +447,61 @@ const Payments = () => {
 
       {/* Modal Recargar (Sin cambios) */}
       {showRechargeModal && selectedCard && (
-         <div className="modal-overlay" onClick={closeModal}>
-         <div className="login-container modal-form" onClick={(e) => e.stopPropagation()}>
-           <button className="modal-close" onClick={closeModal}>×</button>
-           <h2>Recargar Saldo</h2>
-           <p className="modal-subtitle">
-             Vas a recargar la tarjeta <strong>{maskCardNumber(selectedCard.numtarjeta)}</strong>.
-           </p>
-           <div className="current-balance-info">
-             <span>Saldo Actual:</span>
-             <strong>{formatCurrency(selectedCard.saldo)}</strong>
-           </div>
-           <form className="login-form" onSubmit={handleRechargeSubmit}>
-             {formError && <div className="error-message">{formError}</div>}
-             <div className="input-group">
-               <label>Monto a Recargar (COP)</label>
-               <input
-                 type="number"
-                 placeholder="Ej: 50000"
-                 value={rechargeAmount}
-                 onChange={(e) => setRechargeAmount(e.target.value)}
-                 min="1000"
-                 step="1000"
-                 required
-               />
-             </div>
-             <div className="modal-actions">
-               <button type="button" className="cancel-btn" onClick={closeModal} disabled={formLoading}>
-                 Cancelar
-               </button>
-               <button type="submit" className="login-btn recharge-confirm-btn" disabled={formLoading}>
-                 {formLoading ? <div className="spinner"></div> : "Confirmar Recarga"}
-               </button>
-             </div>
-           </form>
-         </div>
-       </div>
+        <div className="modal-overlay" onClick={closeModal}>
+          <div
+            className="login-container modal-form"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="modal-close" onClick={closeModal}>
+              ×
+            </button>
+            <h2>Recargar Saldo</h2>
+            <p className="modal-subtitle">
+              Vas a recargar la tarjeta{" "}
+              <strong>{maskCardNumber(selectedCard.numtarjeta)}</strong>.
+            </p>
+            <div className="current-balance-info">
+              <span>Saldo Actual:</span>
+              <strong>{formatCurrency(selectedCard.saldo)}</strong>
+            </div>
+            <form className="login-form" onSubmit={handleRechargeSubmit}>
+              {formError && <div className="error-message">{formError}</div>}
+              <div className="input-group">
+                <label>Monto a Recargar (COP)</label>
+                <input
+                  type="number"
+                  placeholder="Ej: 50000"
+                  value={rechargeAmount}
+                  onChange={(e) => setRechargeAmount(e.target.value)}
+                  min="1000"
+                  step="1000"
+                  required
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={closeModal}
+                  disabled={formLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="login-btn recharge-confirm-btn"
+                  disabled={formLoading}
+                >
+                  {formLoading ? (
+                    <div className="spinner"></div>
+                  ) : (
+                    "Confirmar Recarga"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

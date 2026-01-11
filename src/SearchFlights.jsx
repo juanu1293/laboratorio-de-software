@@ -176,13 +176,57 @@ function SearchFlights() {
     return difference;
   };
 
-  // 🔥 FUNCIÓN HELPER: Limpiar fecha de formato ISO a formato simple
+  // 🔥 FUNCIÓN HELPER: Limpiar fecha de formato ISO a formato simple - MEJORADA CON DEBUG
   const cleanDate = (dateString) => {
-    if (!dateString) return null;
-    if (typeof dateString === "string" && dateString.includes("T")) {
-      return dateString.split("T")[0];
+    if (!dateString) {
+      console.log("❌ CLEAN DATE - Entrada vacía");
+      return null;
     }
-    return dateString;
+
+    console.log("🔍 CLEAN DATE - Procesando:", {
+      entrada: dateString,
+      tipo: typeof dateString,
+      esDate: dateString instanceof Date,
+    });
+
+    try {
+      // Si es objeto Date
+      if (dateString instanceof Date) {
+        const result = dateString.toISOString().split("T")[0];
+        console.log("✅ CLEAN DATE - De Date a string:", result);
+        return result;
+      }
+
+      // Si es string
+      if (typeof dateString === "string") {
+        // Si ya es formato YYYY-MM-DD
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          console.log("✅ CLEAN DATE - Ya formato YYYY-MM-DD:", dateString);
+          return dateString;
+        }
+
+        // Si contiene T (formato ISO)
+        if (dateString.includes("T")) {
+          const result = dateString.split("T")[0];
+          console.log("✅ CLEAN DATE - De ISO a YYYY-MM-DD:", result);
+          return result;
+        }
+
+        // Intentar parsear como fecha
+        const date = new Date(dateString);
+        if (!isNaN(date)) {
+          const result = date.toISOString().split("T")[0];
+          console.log("✅ CLEAN DATE - Parseado a YYYY-MM-DD:", result);
+          return result;
+        }
+      }
+
+      console.warn("⚠️ CLEAN DATE - Formato no reconocido:", dateString);
+      return dateString;
+    } catch (error) {
+      console.error("❌ Error en cleanDate:", error, "input:", dateString);
+      return dateString;
+    }
   };
 
   // 🔥 FUNCIÓN CORREGIDA: Calcular llegada para vuelos internacionales CON CAMBIO DE FECHA
@@ -201,7 +245,8 @@ function SearchFlights() {
       const [hours, minutes] = departureTime.split(":").map(Number);
 
       // Parsear fecha/hora de salida en zona de origen
-      const [year, month, day] = departureDate.split("-").map(Number);
+      const cleanDepartureDate = cleanDate(departureDate);
+      const [year, month, day] = cleanDepartureDate.split("-").map(Number);
       const departureDateTime = new Date(year, month - 1, day, hours, minutes);
 
       const durationMinutes = parseDuration(duration);
@@ -233,7 +278,7 @@ function SearchFlights() {
       console.log(`🌍 CÁLCULO INTERNACIONAL CORREGIDO:`, {
         origen,
         destino,
-        salida: `${departureDate} ${departureTime}`,
+        salida: `${cleanDepartureDate} ${departureTime}`,
         duracion: `${durationMinutes}min`,
         diferenciaHoraria: `${timeDiff}h`,
         llegadaOrigenTZ: arrivalDateTimeOriginTZ.toLocaleString(),
@@ -255,7 +300,7 @@ function SearchFlights() {
     }
   };
 
-  // 🔥 FUNCIÓN MEJORADA: Calcular llegada para vuelos nacionales
+  // 🔥 FUNCIÓN MEJORADA: Calcular llegada para vuelos nacionales - CORREGIDA
   const calculateNationalArrival = (
     departureTime,
     duration,
@@ -269,11 +314,30 @@ function SearchFlights() {
     try {
       const [hours, minutes] = departureTime.split(":").map(Number);
 
-      // Parsear fecha/hora de salida
-      const [year, month, day] = departureDate.split("-").map(Number);
+      // Limpiar la fecha (remover parte de tiempo si existe)
+      const cleanDepartureDate = cleanDate(departureDate);
+      const [year, month, day] = cleanDepartureDate.split("-").map(Number);
+
+      console.log("🔍 DEPURACIÓN - Fecha de salida:", {
+        original: departureDate,
+        limpiada: cleanDepartureDate,
+        año: year,
+        mes: month,
+        día: day,
+        horaSalida: hours,
+        minutoSalida: minutes,
+      });
+
+      // Crear fecha de salida CORRECTAMENTE
       const departureDateTime = new Date(year, month - 1, day, hours, minutes);
 
       const durationMinutes = parseDuration(duration);
+
+      console.log("🔍 DEPURACIÓN - Cálculo:", {
+        fechaSalidaObj: departureDateTime.toLocaleString(),
+        duracionMinutos: durationMinutes,
+        sumaMilisegundos: durationMinutes * 60 * 1000,
+      });
 
       // Calcular llegada
       const arrivalDateTime = new Date(
@@ -290,29 +354,40 @@ function SearchFlights() {
 
       const arrivalDate = arrivalDateTime.toISOString().split("T")[0];
 
-      console.log(`🇨🇴 CÁLCULO NACIONAL:`, {
+      // Verificar si realmente cambió de día
+      const arrivalDay = arrivalDateTime.getDate();
+      const departureDay = departureDateTime.getDate();
+      const cambiaDia = arrivalDay !== departureDay;
+
+      console.log(`🇨🇴 CÁLCULO NACIONAL CORREGIDO:`, {
         vuelo: flightInfo.id,
-        salida: `${departureDate} ${departureTime}`,
+        salida: `${cleanDepartureDate} ${departureTime}`,
         duracion: `${durationMinutes}min`,
+        horaSalidaObj: departureDateTime.toLocaleString(),
+        horaLlegadaObj: arrivalDateTime.toLocaleString(),
         llegada: `${arrivalDate} ${arrivalTime}`,
-        cambioDia: arrivalDate !== departureDate ? "✅ SI" : "❌ NO",
+        diaSalida: departureDay,
+        diaLlegada: arrivalDay,
+        cambioDia: cambiaDia ? "✅ SI" : "❌ NO",
       });
 
       return {
         time: arrivalTime,
         date: arrivalDate,
         datetime: arrivalDateTime,
+        cambiaDia: cambiaDia,
       };
     } catch (error) {
       console.error("❌ Error en cálculo nacional:", error);
       return {
         time: "00:00",
         date: departureDate,
+        cambiaDia: false,
       };
     }
   };
 
-  // 🔥 FUNCIÓN MAESTRA: Maneja nacionales e internacionales
+  // 🔥 FUNCIÓN MAESTRA CORREGIDA: Maneja nacionales e internacionales
   const calculateFinalArrival = (flight, isReturnFlight = false) => {
     const flightData = isReturnFlight ? flight.returnFlight : flight;
 
@@ -323,8 +398,10 @@ function SearchFlights() {
       flightData.destino
     );
 
+    let result;
+
     if (isInternational) {
-      return calculateInternationalArrival(
+      result = calculateInternationalArrival(
         formatTime(flightData.hora_salida),
         flightData.duracion,
         cleanDate(flightData.fecha_salida),
@@ -332,7 +409,7 @@ function SearchFlights() {
         flightData.destino
       );
     } else {
-      return calculateNationalArrival(
+      result = calculateNationalArrival(
         formatTime(flightData.hora_salida),
         flightData.duracion,
         cleanDate(flightData.fecha_salida),
@@ -342,7 +419,28 @@ function SearchFlights() {
           destino: flightData.destino,
         }
       );
+
+      // 🔥 CORRECCIÓN DE EMERGENCIA: Para vuelos nacionales que no cruzan medianoche
+      // Si el vuelo sale y llega el mismo día (no cambiaDia), usar fecha de salida
+      if (!result.cambiaDia) {
+        console.log(
+          "🔄 CORRECCIÓN: Vuelo no cambia de día, usando fecha de salida"
+        );
+        result.date = cleanDate(flightData.fecha_salida);
+      }
     }
+
+    console.log("🎯 CALCULATE FINAL ARRIVAL - Resultado final:", {
+      vuelo: flightData.id_vuelo,
+      esInternacional: isInternational,
+      fechaSalida: cleanDate(flightData.fecha_salida),
+      fechaLlegada: result.date,
+      horaSalida: formatTime(flightData.hora_salida),
+      horaLlegada: result.time,
+      cambiaDia: result.cambiaDia,
+    });
+
+    return result;
   };
 
   // Verificar autenticación
@@ -949,35 +1047,59 @@ function SearchFlights() {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Formatear fecha corta (vie, 12 nov)
+  // ✅ NUEVA FUNCIÓN CORREGIDA: Formatear fecha corta (vie, 12 nov) - CORREGIDA
   const formatShortDate = (dateString) => {
     if (!dateString) return "Fecha no disponible";
 
     try {
-      if (
-        typeof dateString === "string" &&
-        dateString.match(/^\d{4}-\d{2}-\d{2}$/)
-      ) {
-        const [year, month, day] = dateString.split("-").map(Number);
-        const date = new Date(year, month - 1, day);
-        return date.toLocaleDateString("es-CO", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        });
+      // Limpiar la fecha primero
+      const cleanDateStr = cleanDate(dateString);
+
+      // Si está vacío después de limpiar
+      if (!cleanDateStr) return "Fecha no disponible";
+
+      console.log("🔍 FORMAT SHORT DATE - Entrada:", {
+        original: dateString,
+        limpiada: cleanDateStr,
+        tipoOriginal: typeof dateString,
+      });
+
+      // Parsear la fecha limpia
+      const [year, month, day] = cleanDateStr.split("-").map(Number);
+
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        console.log("❌ FORMAT SHORT DATE - Error parseando:", cleanDateStr);
+        return "Fecha no disponible";
       }
 
-      const date = new Date(dateString);
-      if (!isNaN(date)) {
-        return date.toLocaleDateString("es-CO", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        });
+      // Crear fecha en zona horaria local
+      const date = new Date(year, month - 1, day);
+
+      if (isNaN(date.getTime())) {
+        console.log("❌ FORMAT SHORT DATE - Fecha inválida creada");
+        return "Fecha no disponible";
       }
 
-      return "Fecha no disponible";
-    } catch {
+      const formatted = date.toLocaleDateString("es-CO", {
+        weekday: "short", // ej: "vie"
+        day: "numeric", // ej: "1"
+        month: "short", // ej: "nov"
+      });
+
+      console.log("✅ FORMAT SHORT DATE - Resultado:", {
+        fechaInput: cleanDateStr,
+        fechaObj: date.toLocaleDateString(),
+        formateada: formatted,
+      });
+
+      return formatted;
+    } catch (error) {
+      console.error(
+        "❌ Error en formatShortDate:",
+        error,
+        "input:",
+        dateString
+      );
       return "Fecha no disponible";
     }
   };
@@ -1371,6 +1493,15 @@ function SearchFlights() {
                     ? calculateFinalArrival(flight, true)
                     : null;
 
+                  // 🔥 DEBUG EXTRA: Verificar fechas
+                  console.log("🔍 DEBUG RENDER - Vuelo:", flight.id_vuelo, {
+                    fechaSalidaOriginal: flight.fecha_salida,
+                    fechaSalidaLimpia: cleanDate(flight.fecha_salida),
+                    llegadaIda: llegadaIda,
+                    llegadaIdaDate: llegadaIda.date,
+                    llegadaIdaDateLimpia: cleanDate(llegadaIda.date),
+                  });
+
                   // 🔥 USAR FECHAS CORRECTAS
                   const fechaSalida = formatDate(flight.fecha_salida);
                   const fechaSalidaCorta = formatShortDate(flight.fecha_salida);
@@ -1598,4 +1729,3 @@ function SearchFlights() {
 }
 
 export default SearchFlights;
-

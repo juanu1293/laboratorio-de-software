@@ -705,3 +705,29 @@
     flex-direction: column;
   }
 }
+/* Estados de loading para botones */
+.action-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.action-btn.loading .btn-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Spinner para reservando */
+.reserving-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}

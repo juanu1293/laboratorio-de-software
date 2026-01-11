@@ -25,6 +25,7 @@ import PurchaseFlight from "./PurchaseFlight";
 import News from "./News";
 import CancelFlights from "./CancelFlights";
 import Payments from "./Payments";
+import MyPurchases from "./MyPurchases";
 
 const App = () => {
   return (
@@ -46,6 +47,7 @@ const App = () => {
         <Route path="/news" element={<News />} />
         <Route path="/cancel-flights" element={<CancelFlights />} />
         <Route path="/balance-payments" element={<Payments />} />
+        <Route path="/my-purchases" element={<MyPurchases />} />
       </Routes>
     </Router>
   );
@@ -610,9 +612,6 @@ const HomePage = () => {
             <a href="#" onClick={() => navigate("/news")}>
               Noticias
             </a>
-            <a href="#" onClick={handleComingSoon}>
-              Destinos
-            </a>
           </nav>
         )}
 
@@ -939,4 +938,3 @@ const HomePage = () => {
 };
 
 export default App;
-

@@ -27,52 +27,16 @@ const ManageFlights = () => {
   });
 
   // ESTADOS PARA EDICIÓN
-  const [editingFlight, setEditingFlight] = useState(null); // Vuelo seleccionado
+  const [editingFlight, setEditingFlight] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [canEditDates, setCanEditDates] = useState(true); // Bloqueo si hay asientos ocupados
+  const [canEditDates, setCanEditDates] = useState(true);
   const [editForm, setEditForm] = useState({
     costo_economico: "",
     costo_vip: "",
     fecha_salida: "",
     hora_salida: "",
-    estado: "Activo"
+    estado: "Activo",
   });
-
-  // Reemplaza o agrega esto justo después de los useState:
-  
-  useEffect(() => {
-    fetchFlights();
-  }, []);
-
-  const fetchFlights = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/api/flights");
-      const data = await response.json();
-
-      // Mapeamos los datos de la BD (snake_case) a lo que espera tu diseño (camelCase)
-      const realFlights = data.map(dbFlight => ({
-        id: dbFlight.id_vuelo, // IMPORTANTE: Mapeamos id_vuelo a id
-        id_vuelo: dbFlight.id_vuelo, // Guardamos también el original por seguridad
-        flightNumber: `VS${String(dbFlight.id_vuelo).padStart(3, '0')}`, // Generamos un código visual (ej: VS009)
-        route: `${dbFlight.origen} → ${dbFlight.destino}`,
-        origin: dbFlight.origen,
-        destination: dbFlight.destino,
-        schedule: `${dbFlight.hora_salida.substring(0, 5)} - ${dbFlight.hora_llegada ? dbFlight.hora_llegada.substring(0, 5) : '?'}`,
-        fecha_salida: dbFlight.fecha_salida.split('T')[0], // Limpiar fecha
-        hora_salida: dbFlight.hora_salida,
-        hora_llegada: dbFlight.hora_llegada,
-        price: Number(dbFlight.costo_economico),
-        costo_economico: Number(dbFlight.costo_economico),
-        costo_vip: Number(dbFlight.costo_vip),
-        status: dbFlight.estado || "Activo",
-        tipo_vuelo: dbFlight.tipo_vuelo
-      }));
-
-      setFlights(realFlights);
-    } catch (error) {
-      console.error("Error cargando vuelos reales:", error);
-    }
-  };
 
   // Lista de ciudades disponibles
   const cities = [
@@ -174,12 +138,47 @@ const ManageFlights = () => {
     (city) => !colombianCitiesWithInternationalFlights.includes(city)
   );
 
-  // ✅ CORREGIDO: Función para obtener vuelos paginados (mantener orden original)
+  // Cargar vuelos desde el backend
+  useEffect(() => {
+    fetchFlights();
+    checkAuthAndPermissions();
+  }, []);
+
+  const fetchFlights = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/flights");
+      const data = await response.json();
+
+      const realFlights = data.map((dbFlight) => ({
+        id: dbFlight.id_vuelo,
+        id_vuelo: dbFlight.id_vuelo,
+        flightNumber: `VS${String(dbFlight.id_vuelo).padStart(3, "0")}`,
+        route: `${dbFlight.origen} → ${dbFlight.destino}`,
+        origin: dbFlight.origen,
+        destination: dbFlight.destino,
+        schedule: `${dbFlight.hora_salida.substring(0, 5)} - ${
+          dbFlight.hora_llegada ? dbFlight.hora_llegada.substring(0, 5) : "?"
+        }`,
+        fecha_salida: dbFlight.fecha_salida.split("T")[0],
+        hora_salida: dbFlight.hora_salida,
+        hora_llegada: dbFlight.hora_llegada,
+        price: Number(dbFlight.costo_economico),
+        costo_economico: Number(dbFlight.costo_economico),
+        costo_vip: Number(dbFlight.costo_vip),
+        status: dbFlight.estado || "Activo",
+        tipo_vuelo: dbFlight.tipo_vuelo,
+      }));
+
+      setFlights(realFlights);
+    } catch (error) {
+      console.error("Error cargando vuelos:", error);
+    }
+  };
+
+  // Obtener vuelos paginados
   const getPaginatedFlights = () => {
     const indexOfLastFlight = currentPage * flightsPerPage;
     const indexOfFirstFlight = indexOfLastFlight - flightsPerPage;
-
-    // Usar el array original sin ordenar (orden de la base de datos)
     return flights.slice(indexOfFirstFlight, indexOfLastFlight);
   };
 
@@ -310,51 +309,7 @@ const ManageFlights = () => {
     });
   };
 
-  // Función para guardar vuelo en localStorage con horarios correctos
-  const saveFlightToLocalList = (flightData, isReturnFlight = false) => {
-    try {
-      const existingFlights = JSON.parse(
-        localStorage.getItem("vivaSky_managedFlights") || "[]"
-      );
-
-      // USAR LOS HORARIOS ESPECÍFICOS DE CADA VUELO
-      const horaSalida = flightData.hora_salida?.substring(0, 5) || "08:00";
-      const horaLlegada = flightData.hora_llegada?.substring(0, 5) || "10:00";
-
-      const newFlightForList = {
-        id: flightData.id_vuelo || Date.now() + (isReturnFlight ? 1 : 0),
-        flightNumber: `VS${flightData.id_vuelo || "NEW"}${
-          isReturnFlight ? "R" : ""
-        }`,
-        route: isReturnFlight
-          ? `${flightData.destino} → ${flightData.origen}`
-          : `${flightData.origen} → ${flightData.destino}`,
-        schedule: `${horaSalida} - ${horaLlegada}`,
-        price: Number(flightData.costo_economico) || 0,
-        status: "Activo",
-        tipo_vuelo: isReturnFlight ? "regreso" : "ida",
-        fecha_salida: flightData.fecha_salida,
-        fecha_llegada: flightData.fecha_llegada,
-        origen: flightData.origen,
-        destino: flightData.destino,
-        hora_salida: horaSalida,
-        hora_llegada: horaLlegada,
-      };
-
-      const updatedFlights = [...existingFlights, newFlightForList];
-      localStorage.setItem(
-        "vivaSky_managedFlights",
-        JSON.stringify(updatedFlights)
-      );
-
-      // ACTUALIZAR EL ESTADO INMEDIATAMENTE
-      setFlights(updatedFlights);
-    } catch (error) {
-      console.error("Error guardando en lista local:", error);
-    }
-  };
-
-  // Manejar envío del formulario - CORREGIDO CON DEBUG
+  // Manejar envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -391,20 +346,19 @@ const ManageFlights = () => {
     }
 
     try {
-      // VUELO DE IDA: Origen → Destino (fecha/hora de salida)
+      // VUELO DE IDA: Origen → Destino
       const flightDataIda = {
         origen: flightForm.origen,
         destino: flightForm.destino,
         fecha_salida: flightForm.fecha_salida,
         hora_salida: flightForm.hora_salida,
-        fecha_llegada: flightForm.fecha_salida, // Misma fecha que salida (solo_ida)
-        hora_llegada: flightForm.hora_salida, // Misma hora que salida (solo_ida)
+        fecha_llegada: flightForm.fecha_salida,
+        hora_llegada: flightForm.hora_salida,
         costo_economico: Number(flightForm.costo_economico),
         costo_vip: Number(flightForm.costo_vip),
-        tipo_vuelo: "solo_ida", // ✅ CORREGIDO: usar "solo_ida"
+        tipo_vuelo: "solo_ida",
       };
 
-      // ✅ DEBUG: VER DATOS QUE SE ENVÍAN
       console.log(
         "🛫 ENVIANDO VUELO DE IDA:",
         JSON.stringify(flightDataIda, null, 2)
@@ -419,7 +373,6 @@ const ManageFlights = () => {
         body: JSON.stringify(flightDataIda),
       });
 
-      // ✅ DEBUG: VER RESPUESTA DEL SERVIDOR
       console.log("📨 Respuesta del servidor (Ida):", {
         status: responseIda.status,
         ok: responseIda.ok,
@@ -443,20 +396,19 @@ const ManageFlights = () => {
       const dataIda = await responseIda.json();
       console.log("✅ Vuelo de ida creado exitosamente:", dataIda);
 
-      // VUELO DE REGRESO: Destino → Origen (fecha/hora de llegada como nueva salida)
+      // VUELO DE REGRESO: Destino → Origen
       const flightDataRegreso = {
-        origen: flightForm.destino, // El destino se convierte en origen
-        destino: flightForm.origen, // El origen se convierte en destino
-        fecha_salida: flightForm.fecha_llegada, // Fecha de "llegada" como nueva salida
-        hora_salida: flightForm.hora_llegada, // Hora de "llegada" como nueva salida
-        fecha_llegada: flightForm.fecha_llegada, // Misma fecha (solo_ida)
-        hora_llegada: flightForm.hora_llegada, // Misma hora (solo_ida)
+        origen: flightForm.destino,
+        destino: flightForm.origen,
+        fecha_salida: flightForm.fecha_llegada,
+        hora_salida: flightForm.hora_llegada,
+        fecha_llegada: flightForm.fecha_llegada,
+        hora_llegada: flightForm.hora_llegada,
         costo_economico: Number(flightForm.costo_economico),
         costo_vip: Number(flightForm.costo_vip),
-        tipo_vuelo: "solo_ida", // ✅ CORREGIDO: usar "solo_ida"
+        tipo_vuelo: "solo_ida",
       };
 
-      // ✅ DEBUG: VER DATOS QUE SE ENVÍAN
       console.log(
         "🛬 ENVIANDO VUELO DE REGRESO:",
         JSON.stringify(flightDataRegreso, null, 2)
@@ -471,7 +423,6 @@ const ManageFlights = () => {
         body: JSON.stringify(flightDataRegreso),
       });
 
-      // ✅ DEBUG: VER RESPUESTA DEL SERVIDOR
       console.log("📨 Respuesta del servidor (Regreso):", {
         status: responseRegreso.status,
         ok: responseRegreso.ok,
@@ -481,25 +432,7 @@ const ManageFlights = () => {
       if (responseRegreso.ok) {
         const dataRegreso = await responseRegreso.json();
         console.log("✅ Vuelo de regreso creado exitosamente:", dataRegreso);
-
         alert("✅ Vuelo de ida y vuelta creados exitosamente");
-
-        // GUARDAR AMBOS VUELOS CON SUS DATOS EXACTOS
-        saveFlightToLocalList(
-          {
-            id_vuelo: dataIda.id_vuelo,
-            ...flightDataIda,
-          },
-          false
-        );
-
-        saveFlightToLocalList(
-          {
-            id_vuelo: dataRegreso.id_vuelo,
-            ...flightDataRegreso,
-          },
-          true
-        );
       } else {
         let errorMessage = `Error ${responseRegreso.status}`;
         try {
@@ -517,18 +450,12 @@ const ManageFlights = () => {
           "✅ Vuelo de ida creado exitosamente. ❌ Hubo un problema con el vuelo de regreso: " +
             errorMessage
         );
-
-        // Guardar solo el vuelo de ida
-        saveFlightToLocalList(
-          {
-            id_vuelo: dataIda.id_vuelo,
-            ...flightDataIda,
-          },
-          false
-        );
       }
 
-      // 🔥 CAMBIADO: IR A LA ÚLTIMA PÁGINA PARA VER LOS VUELOS NUEVOS
+      // Recargar la lista de vuelos
+      fetchFlights();
+
+      // Ir a la última página para ver los vuelos nuevos
       setCurrentPage(totalPages);
 
       // Limpiar formulario
@@ -552,16 +479,6 @@ const ManageFlights = () => {
   };
 
   // Verificar autenticación y permisos
-  useEffect(() => {
-    checkAuthAndPermissions();
-    loadSampleFlights();
-  }, []);
-
-  // Resetear a página 1 cuando cambia la pestaña
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
-
   const checkAuthAndPermissions = () => {
     const authToken =
       localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
@@ -598,36 +515,10 @@ const ManageFlights = () => {
     }
   };
 
-  // Cargar vuelos del localStorage
-  const loadSampleFlights = () => {
-    try {
-      const savedFlights = localStorage.getItem("vivaSky_managedFlights");
-      if (savedFlights) {
-        const parsedFlights = JSON.parse(savedFlights);
-        // ✅ CORREGIDO: Mantener el orden original
-        setFlights(parsedFlights);
-      } else {
-        const sampleFlights = [
-          {
-            id: 1,
-            flightNumber: "VS001",
-            route: "Bogotá → Medellín",
-            schedule: "08:00 - 09:30",
-            price: 350000,
-            status: "Activo",
-            tipo_vuelo: "ida",
-          },
-        ];
-        setFlights(sampleFlights);
-        localStorage.setItem(
-          "vivaSky_managedFlights",
-          JSON.stringify(sampleFlights)
-        );
-      }
-    } catch (error) {
-      setFlights([]);
-    }
-  };
+  // Resetear a página 1 cuando cambia la pestaña
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
@@ -651,23 +542,21 @@ const ManageFlights = () => {
     }
   };
 
-  // 1. Función al hacer click (MODO DIAGNÓSTICO)
+  // Función para editar vuelo
   const handleEditClick = async (flight) => {
-    
-    // 🔍 ESTO ES LO MÁS IMPORTANTE AHORA:
     console.log("📦 OBJETO VUELO COMPLETO:", flight);
-    
-    // Intentamos encontrar el ID con varios nombres posibles
-    const flightId = flight.id_vuelo || flight.id || flight.flight_id || flight._id;
 
+    const flightId =
+      flight.id_vuelo || flight.id || flight.flight_id || flight._id;
     console.log("🔎 ID DETECTADO:", flightId);
 
     if (!flightId) {
-      alert("❌ ERROR CRÍTICO: No se encuentra el ID del vuelo en los datos. Abre la consola (F12) para ver los detalles.");
-      return; 
+      alert("❌ ERROR CRÍTICO: No se encuentra el ID del vuelo en los datos.");
+      return;
     }
 
-    const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const authToken =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
     if (!authToken) {
       alert("⚠️ No hay sesión activa.");
@@ -675,10 +564,13 @@ const ManageFlights = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/flights/${flightId}/check-seats`, {
-        headers: { Authorization: "Bearer " + authToken }
-      });
-      
+      const response = await fetch(
+        `http://localhost:5000/api/flights/${flightId}/check-seats`,
+        {
+          headers: { Authorization: "Bearer " + authToken },
+        }
+      );
+
       let canEdit = true;
       let occupied = 0;
 
@@ -690,68 +582,71 @@ const ManageFlights = () => {
 
       setEditingFlight(flight);
       setCanEditDates(canEdit);
-      
+
       setEditForm({
-        costo_economico: flight.price || flight.costo_economico || "", 
+        costo_economico: flight.price || flight.costo_economico || "",
         costo_vip: flight.costo_vip || 0,
         fecha_salida: flight.fecha_salida || "",
         hora_salida: flight.hora_salida || "",
-        estado: flight.status || flight.estado || "Activo"
+        estado: flight.status || flight.estado || "Activo",
       });
 
       setShowEditModal(true);
-
     } catch (error) {
       console.error("Error:", error);
       alert("Error al verificar asientos, revisa la consola.");
     }
   };
 
-  // 2. Manejar cambios en el input del modal
+  // Manejar cambios en el input del modal
   const handleEditChange = (e) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  // 3. Guardar la edición (CORREGIDA ID)
+  // Guardar la edición
   const handleUpdateFlight = async (e) => {
     e.preventDefault();
-    
-    const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    
+
+    const authToken =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
     if (!authToken) {
       alert("⚠️ Error de sesión: No se encontró tu credencial de acceso.");
       return;
     }
 
-    // 🔴 ERROR ANTERIOR: const flightId = editingFlight.id_vuelo || editingFlight.id;
-    // 🟢 CORRECCIÓN: Forzamos id_vuelo
     const flightId = editingFlight.id_vuelo;
-
-    console.log("💾 Guardando en BD ID:", flightId); // Verifica que salga 9 y no 1
+    console.log("💾 Guardando en BD ID:", flightId);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/flights/${flightId}`, {
-        method: 'PUT',
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + authToken 
-        },
-        body: JSON.stringify(editForm)
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/flights/${flightId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + authToken,
+          },
+          body: JSON.stringify(editForm),
+        }
+      );
 
       if (response.ok) {
         alert("✅ Vuelo actualizado correctamente.");
-        window.location.reload(); 
+        fetchFlights(); // Recargar vuelos
+        setShowEditModal(false);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`❌ Error al actualizar: ${errorData.mensaje || "Error desconocido"}`);
+        alert(
+          `❌ Error al actualizar: ${errorData.mensaje || "Error desconocido"}`
+        );
       }
     } catch (error) {
       console.error("Error de red:", error);
       alert("Error de conexión al intentar guardar.");
     }
   };
-  
+
   // Componente del menú de usuario
   const UserMenu = ({ userInfo, onLogout }) => {
     const [showMenu, setShowMenu] = useState(false);
@@ -968,10 +863,12 @@ const ManageFlights = () => {
                   <tbody>
                     {getPaginatedFlights().map((flight) => (
                       <tr
-                        key={flight.id} 
-                        className={`${flight.status === "Inactivo" ? "inactive-flight" : ""} flight-row-clickable`}
-                        onClick={() => handleEditClick(flight)} // <--- AGREGAR ESTO
-                        style={{ cursor: "pointer" }} // Para indicar que es clickeable
+                        key={flight.id}
+                        className={`${
+                          flight.status === "Inactivo" ? "inactive-flight" : ""
+                        } flight-row-clickable`}
+                        onClick={() => handleEditClick(flight)}
+                        style={{ cursor: "pointer" }}
                         title="Click para editar vuelo"
                       >
                         <td>
@@ -1317,23 +1214,47 @@ const ManageFlights = () => {
             </div>
           )}
         </div>
+
         {/* MODAL DE EDICIÓN */}
         {showEditModal && (
-          <div className="modal-overlay" style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', 
-            justifyContent: 'center', alignItems: 'center', zIndex: 1000
-          }}>
-            <div className="modal-content" style={{
-              backgroundColor: 'white', padding: '30px', borderRadius: '10px',
-              width: '500px', maxWidth: '90%'
-            }}>
-              <h2 style={{marginBottom: '20px'}}>✏️ Editar Vuelo {editingFlight?.flightNumber}</h2>
-              
+          <div
+            className="modal-overlay"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.7)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              className="modal-content"
+              style={{
+                backgroundColor: "white",
+                padding: "30px",
+                borderRadius: "10px",
+                width: "500px",
+                maxWidth: "90%",
+              }}
+            >
+              <h2 style={{ marginBottom: "20px" }}>
+                ✏️ Editar Vuelo {editingFlight?.flightNumber}
+              </h2>
+
               <form onSubmit={handleUpdateFlight}>
                 <div className="form-group">
                   <label>Estado del Vuelo</label>
-                  <select name="estado" value={editForm.estado} onChange={handleEditChange} style={{width: '100%', padding: '8px'}}>
+                  <select
+                    name="estado"
+                    value={editForm.estado}
+                    onChange={handleEditChange}
+                    style={{ width: "100%", padding: "8px" }}
+                  >
                     <option value="Activo">Activo</option>
                     <option value="Inactivo">Inactivo</option>
                     <option value="Retrasado">Retrasado</option>
@@ -1343,45 +1264,84 @@ const ManageFlights = () => {
 
                 <div className="form-group">
                   <label>Costo Económico</label>
-                  <input 
-                    type="number" name="costo_economico" 
-                    value={editForm.costo_economico} onChange={handleEditChange} 
-                    style={{width: '100%', padding: '8px'}}
+                  <input
+                    type="number"
+                    name="costo_economico"
+                    value={editForm.costo_economico}
+                    onChange={handleEditChange}
+                    style={{ width: "100%", padding: "8px" }}
                   />
                 </div>
 
                 <div className="form-group">
                   <label>Costo VIP</label>
-                  <input 
-                    type="number" name="costo_vip" 
-                    value={editForm.costo_vip} onChange={handleEditChange} 
-                    style={{width: '100%', padding: '8px'}}
+                  <input
+                    type="number"
+                    name="costo_vip"
+                    value={editForm.costo_vip}
+                    onChange={handleEditChange}
+                    style={{ width: "100%", padding: "8px" }}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Fecha Salida { !canEditDates && <span style={{color:'red'}}>(Bloqueado: Hay pasajeros)</span> }</label>
-                  <input 
-                    type="date" name="fecha_salida" 
-                    value={editForm.fecha_salida} onChange={handleEditChange} 
-                    disabled={!canEditDates} // SE BLOQUEA SI HAY ASIENTOS OCUPADOS
-                    style={{width: '100%', padding: '8px', backgroundColor: !canEditDates ? '#eee' : 'white'}}
+                  <label>
+                    Fecha Salida{" "}
+                    {!canEditDates && (
+                      <span style={{ color: "red" }}>
+                        (Bloqueado: Hay pasajeros)
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="date"
+                    name="fecha_salida"
+                    value={editForm.fecha_salida}
+                    onChange={handleEditChange}
+                    disabled={!canEditDates}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      backgroundColor: !canEditDates ? "#eee" : "white",
+                    }}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Hora Salida { !canEditDates && <span style={{color:'red'}}>(Bloqueado)</span> }</label>
-                  <input 
-                    type="time" name="hora_salida" 
-                    value={editForm.hora_salida} onChange={handleEditChange} 
-                    disabled={!canEditDates} // SE BLOQUEA SI HAY ASIENTOS OCUPADOS
-                    style={{width: '100%', padding: '8px', backgroundColor: !canEditDates ? '#eee' : 'white'}}
+                  <label>
+                    Hora Salida{" "}
+                    {!canEditDates && (
+                      <span style={{ color: "red" }}>(Bloqueado)</span>
+                    )}
+                  </label>
+                  <input
+                    type="time"
+                    name="hora_salida"
+                    value={editForm.hora_salida}
+                    onChange={handleEditChange}
+                    disabled={!canEditDates}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      backgroundColor: !canEditDates ? "#eee" : "white",
+                    }}
                   />
                 </div>
 
-                <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
-                  <button type="submit" className="submit-btn primary">Guardar Cambios</button>
-                  <button type="button" className="submit-btn" style={{backgroundColor: '#ccc'}} onClick={() => setShowEditModal(false)}>Cancelar</button>
+                <div
+                  style={{ display: "flex", gap: "10px", marginTop: "20px" }}
+                >
+                  <button type="submit" className="submit-btn primary">
+                    Guardar Cambios
+                  </button>
+                  <button
+                    type="button"
+                    className="submit-btn"
+                    style={{ backgroundColor: "#ccc" }}
+                    onClick={() => setShowEditModal(false)}
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>

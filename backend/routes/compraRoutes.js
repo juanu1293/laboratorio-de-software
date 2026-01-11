@@ -12,4 +12,8 @@ router.post("/resumen", compraController.resumenCompra);
 // ======================================================
 router.post("/pagar", compraController.pagarCompra);
 
+// ======================================================
+//  📋 HISTORIAL DE COMPRAS DEL CLIENTE
+// ======================================================
+router.get("/historial/:idcliente", compraController.obtenerHistorialCompras);
 module.exports = router;

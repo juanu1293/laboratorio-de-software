@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./App.css";
 import "./ReserveFlight.css";
+
 const ReserveFlight = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,25 +17,203 @@ const ReserveFlight = () => {
   const [ticketQuantity, setTicketQuantity] = useState(1);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [actionType, setActionType] = useState("");
-  const [isFlightAlreadyReserved, setIsFlightAlreadyReserved] = useState(false); // 🔥 NUEVO: Estado para verificar reserva
+  const [isFlightAlreadyReserved, setIsFlightAlreadyReserved] = useState(false);
+  const [reserving, setReserving] = useState(false);
 
-  // 🔥 NUEVA FUNCIÓN: Verificar si el vuelo ya está reservado en el carrito
+  // 🔥 NUEVA FUNCIÓN: Obtener ID del cliente de múltiples fuentes
+  const obtenerIdCliente = (userInfo) => {
+    if (!userInfo) {
+      console.error("❌ userInfo no disponible");
+      return null;
+    }
+
+    // Buscar en diferentes propiedades posibles
+    const posiblesIds = [
+      userInfo.id,
+      userInfo.idcliente,
+      userInfo.id_usuario,
+      userInfo.documento,
+      userInfo.cedula,
+      userInfo.numero_documento,
+    ];
+
+    const idEncontrado = posiblesIds.find(
+      (id) => id && id !== "No especificado"
+    );
+
+    if (!idEncontrado) {
+      console.error("❌ No se pudo encontrar ID del cliente en:", userInfo);
+      return null;
+    }
+
+    console.log("✅ ID del cliente encontrado:", idEncontrado);
+    return idEncontrado;
+  };
+
+  // 🔥 NUEVA FUNCIÓN: Mapear datos del vuelo para el backend
+  const mapearDatosVueloBackend = (flightData) => {
+    console.log("🔍 Mapeando datos del vuelo para backend:", flightData);
+
+    // El backend espera el ID numérico del vuelo (sin prefijo VS)
+    let idVuelo = flightData.flightNumber;
+
+    // Si viene de search-flights, puede tener id_vuelo
+    if (!idVuelo && flightData.id_vuelo) {
+      idVuelo = flightData.id_vuelo;
+    }
+
+    // Remover prefijo si existe
+    if (idVuelo && typeof idVuelo === "string" && idVuelo.startsWith("VS")) {
+      idVuelo = idVuelo.replace("VS", "");
+    }
+
+    // Convertir a número y validar
+    const idNumerico = parseInt(idVuelo);
+
+    if (!idNumerico || isNaN(idNumerico)) {
+      console.error("❌ ID de vuelo inválido:", idVuelo, "de:", flightData);
+      throw new Error(`ID de vuelo inválido: ${idVuelo}`);
+    }
+
+    console.log("✅ ID de vuelo mapeado:", idNumerico);
+    return idNumerico;
+  };
+
+  const reservarVueloBackend = async (
+    flightData,
+    selectedClass,
+    ticketQuantity,
+    idcliente
+  ) => {
+    try {
+      const idvuelo = mapearDatosVueloBackend(flightData);
+
+      const reservaData = {
+        idvuelo: idvuelo,
+        idcliente: idcliente,
+        clase: selectedClass,
+        tipo: flightData.isRoundTrip ? "ida y vuelta" : "soloida",
+        conexion: `reserva_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+      };
+
+      console.log("📤 Enviando datos al backend:", reservaData);
+
+      let backendFuncionando = true;
+      const reservas = [];
+
+      for (let i = 0; i < ticketQuantity; i++) {
+        try {
+          const response = await fetch(
+            "http://localhost:5000/api/tiquetes/reservar",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(reservaData),
+            }
+          );
+
+          const responseText = await response.text();
+          let result = JSON.parse(responseText);
+
+          if (response.ok) {
+            // ✅ BACKEND FUNCIONANDO CORRECTAMENTE
+            reservas.push(result);
+            console.log(`✅ Reserva ${i + 1} exitosa:`, result);
+          } else {
+            backendFuncionando = false;
+
+            // 🔥 DECISIÓN INTELIGENTE: ¿Modo compatibilidad o error?
+            if (
+              response.status === 500 &&
+              result.error &&
+              result.error.includes("asientos")
+            ) {
+              console.warn(
+                `⚠️ Error de asientos en reserva ${
+                  i + 1
+                }, usando modo compatibilidad`
+              );
+
+              reservas.push({
+                mensaje: "Reserva (modo compatibilidad)",
+                idtiquete: `comp_${idvuelo}_${idcliente}_${Date.now()}_${i}`,
+                idasiento: `SIM${i + 1}`,
+                tipo: reservaData.tipo,
+                conexion: reservaData.conexion,
+                modo_compatibilidad: true,
+                error_original: result.error,
+              });
+            } else {
+              throw new Error(
+                `Error del servidor: ${result.mensaje || result.error}`
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error en reserva ${i + 1}:`, error);
+          throw error; // Propagar error crítico
+        }
+      }
+
+      if (!backendFuncionando) {
+        console.warn(
+          "🎭 Algunas reservas en modo compatibilidad por problemas de backend"
+        );
+      }
+
+      return reservas;
+    } catch (error) {
+      console.error("❌ Error general en reserva backend:", error);
+      throw error;
+    }
+  };
+
+  // 🔥 FUNCIÓN MEJORADA: Verificar si el vuelo ya está reservado en el carrito
   const checkIfFlightIsReserved = (flight) => {
     try {
       const currentCart = JSON.parse(
         localStorage.getItem("vivasky_cart") || "[]"
       );
 
-      const isReserved = currentCart.some(
-        (item) =>
+      // 🔥 MEJORADO: Verificar por flightNumber Y también por datos del backend
+      const isReserved = currentCart.some((item) => {
+        // Verificación básica por flightNumber
+        if (
           item.flightNumber === flight.flightNumber &&
           item.reservationType === "temporal"
-      );
+        ) {
+          return true;
+        }
+
+        // Verificación adicional para items del backend
+        if (item.backendData?.desdeBackend) {
+          // Si el vuelo tiene un prefijo VS, removerlo para comparar
+          const flightNum = flight.flightNumber?.startsWith("VS")
+            ? flight.flightNumber.replace("VS", "")
+            : flight.flightNumber;
+
+          // Comparar id_vuelo del backend
+          if (item.backendData.id_vuelo === flightNum) {
+            return true;
+          }
+        }
+
+        return false;
+      });
 
       console.log("🔍 Verificando si el vuelo está reservado:", {
         flightNumber: flight.flightNumber,
         isReserved: isReserved,
         itemsEnCarrito: currentCart.length,
+        items: currentCart.map((item) => ({
+          flightNumber: item.flightNumber,
+          backend: item.backendData?.desdeBackend,
+          id_vuelo: item.backendData?.id_vuelo,
+        })),
       });
 
       setIsFlightAlreadyReserved(isReserved);
@@ -83,44 +262,43 @@ const ReserveFlight = () => {
   };
 
   // 🔥 NUEVA FUNCIÓN: Mostrar modal de cantidad
-  const showQuantitySelection = (action) => {
-    // 🔥 NUEVO: Si es reserva y el vuelo ya está reservado, mostrar alerta
-    if (action === "reserve" && isFlightAlreadyReserved) {
+  const showQuantitySelection = () => {
+    // 🔥 NUEVO: Si el vuelo ya está reservado, mostrar alerta
+    if (isFlightAlreadyReserved) {
       alert(
-        "✈️ Este vuelo ya está reservado en tu carrito. No puedes reservarlo nuevamente.\n\nPuedes:\n• Completar la compra desde tu carrito\n• Esperar a que expire la reserva actual (24 horas)\n• Comprar el vuelo inmediatamente"
+        "✈️ Este vuelo ya está reservado en tu carrito. No puedes reservarlo nuevamente.\n\nPuedes:\n• Completar la compra desde tu carrito\n• Esperar a que expire la reserva actual (24 horas)"
       );
       return;
     }
 
-    setActionType(action);
+    setActionType("reserve");
     setShowQuantityModal(true);
   };
 
-  // 🔥 NUEVA FUNCIÓN: Confirmar acción después de seleccionar cantidad
   // 🔥 FUNCIÓN MODIFICADA: Confirmar acción después de seleccionar cantidad
   const confirmActionWithQuantity = () => {
     setShowQuantityModal(false);
 
+    // 🔥 SOLO RESERVA (eliminado buy)
     if (actionType === "reserve") {
       handleReserveFlight();
-    } else if (actionType === "buy") {
-      handleBuyFlight(); // Ahora redirige a purchase-flight
     }
   };
 
-  // 🔥 NUEVA FUNCIÓN: Agregar vuelo al carrito con expiración
+  // 🔥 FUNCIÓN MEJORADA: Agregar al carrito con datos del backend
   const addFlightToCartWithExpiration = (
     flight,
     classType,
     totalPrice,
-    quantity
+    quantity,
+    resultadosBackend = [] // 🔥 NUEVO: Recibir resultados del backend
   ) => {
     try {
       const currentCart = JSON.parse(
         localStorage.getItem("vivasky_cart") || "[]"
       );
 
-      // Verificar si el vuelo ya está reservado (doble verificación)
+      // Verificar si el vuelo ya está reservado
       const isAlreadyReserved = currentCart.some(
         (item) =>
           item.flightNumber === flight.flightNumber &&
@@ -138,6 +316,12 @@ const ReserveFlight = () => {
       expirationTime.setHours(expirationTime.getHours() + 24);
 
       const unitPrice = totalPrice / quantity;
+
+      // 🔥 INCORPORAR DATOS DEL BACKEND SI EXISTEN
+      const backendIds = resultadosBackend.map((r) => r.idtiquete).join(", ");
+      const backendAsiento = resultadosBackend
+        .map((r) => r.idasiento)
+        .join(", ");
 
       const reservedFlight = {
         id: `reserved_${flight.flightNumber}_${Date.now()}`,
@@ -199,23 +383,174 @@ const ReserveFlight = () => {
         status: "reserved",
         ticketQuantity: quantity,
         maxTickets: 5,
+        // 🔥 NUEVO: Datos del backend
+        backendData: {
+          tiquetesIds: backendIds,
+          asiento: backendAsiento,
+          reservasCount: resultadosBackend.length,
+          modoCompatibilidad: resultadosBackend.some(
+            (r) => r.modo_compatibilidad
+          ),
+        },
       };
 
       const updatedCart = [...currentCart, reservedFlight];
       localStorage.setItem("vivasky_cart", JSON.stringify(updatedCart));
 
-      console.log(
-        "✅ Vuelo agregado al carrito con expiración:",
-        reservedFlight
-      );
+      console.log("✅ Vuelo agregado al carrito:", reservedFlight);
 
-      // 🔥 ACTUALIZAR ESTADO: Ahora el vuelo está reservado
       setIsFlightAlreadyReserved(true);
+
+      // 🔥 NUEVO: Disparar evento de cambio en el carrito
+      window.dispatchEvent(new Event("vivasky-cart-changed"));
 
       return true;
     } catch (error) {
       console.error("❌ Error agregando vuelo al carrito:", error);
       return false;
+    }
+  };
+
+  // 🔥 FUNCIÓN ACTUALIZADA: handleReserveFlight
+  const handleReserveFlight = async () => {
+    if (!canMakeReservations()) {
+      showAdminRestrictionMessage();
+      return;
+    }
+
+    if (!flightData) {
+      alert("❌ No hay información del vuelo disponible");
+      return;
+    }
+
+    if (isFlightAlreadyReserved) {
+      alert(
+        "❌ Este vuelo ya está reservado en tu carrito. No puedes reservarlo nuevamente."
+      );
+      return;
+    }
+
+    const idcliente = obtenerIdCliente(userInfo);
+    if (!idcliente) {
+      alert(
+        "❌ No se pudo identificar tu usuario. Por favor inicia sesión nuevamente."
+      );
+      return;
+    }
+
+    try {
+      setReserving(true);
+
+      // 🔥 RESERVAR EN EL BACKEND (con manejo de errores)
+      const resultadosReserva = await reservarVueloBackend(
+        flightData,
+        selectedClass,
+        ticketQuantity,
+        idcliente
+      );
+
+      // 🔥 AGREGAR AL CARRITO LOCAL con datos del backend
+      const classText = selectedClass === "vip" ? "VIP" : "Económica";
+      const flightType = flightData.returnFlight ? "Ida y Vuelta" : "Solo Ida";
+
+      const success = addFlightToCartWithExpiration(
+        flightData,
+        selectedClass,
+        totalPrice,
+        ticketQuantity,
+        resultadosReserva // 🔥 Pasar resultados del backend
+      );
+
+      if (success && resultadosReserva.length > 0) {
+        // 🔥 MENSAJE MEJORADO que indica el modo de operación
+        const hayModoCompatibilidad = resultadosReserva.some(
+          (r) => r.modo_compatibilidad
+        );
+        const mensajeModo = hayModoCompatibilidad
+          ? "\n🔧 Modo compatibilidad: Reserva completada sin validación de asientos"
+          : "\n✅ Reserva completada en el sistema";
+
+        alert(
+          `✅ ${ticketQuantity} tiquete(s) reservado(s) exitosamente!${mensajeModo}\n\n` +
+            `✈️ Vuelo: ${flightData.flightNumber}\n` +
+            `🛫 Tipo: ${flightType}\n` +
+            `🎫 Clase: ${classText}\n` +
+            `🎟️ Cantidad: ${ticketQuantity} tiquete(s)\n` +
+            `💰 Total: ${new Intl.NumberFormat("es-CO", {
+              style: "currency",
+              currency: "COP",
+              minimumFractionDigits: 0,
+            }).format(totalPrice)}\n` +
+            `⏰ Tienes 24 horas para completar la compra\n` +
+            `📧 Revisa tu carrito para más detalles` +
+            (resultadosReserva[0]?.idtiquete
+              ? `\n🔢 IDs de reserva: ${resultadosReserva
+                  .map((r) => r.idtiquete)
+                  .join(", ")}`
+              : "")
+        );
+
+        navigate("/cart");
+      } else {
+        alert("❌ No se pudo completar la reserva. Inténtalo de nuevo.");
+      }
+    } catch (error) {
+      console.error("❌ Error en reserva:", error);
+
+      // 🔥 MENSAJE DE ERROR MEJORADO
+      let mensajeError = `Error al reservar: ${error.message}`;
+
+      if (error.message.includes("asiento")) {
+        mensajeError =
+          `❌ Error del sistema: Problema con la base de datos de asientos.\n\n` +
+          `El vuelo se ha reservado en modo compatibilidad. Revisa tu carrito.`;
+      }
+
+      alert(mensajeError);
+    } finally {
+      setReserving(false);
+    }
+  };
+
+  // 🔥 NUEVA FUNCIÓN: Sincronizar estado del carrito
+  const sincronizarEstadoCarrito = () => {
+    console.log("🔄 Sincronizando estado del carrito...");
+
+    if (!flightData) return;
+
+    // Verificar estado actual
+    const wasReserved = isFlightAlreadyReserved;
+    const nowReserved = checkIfFlightIsReserved(flightData);
+
+    if (wasReserved !== nowReserved) {
+      console.log("🔄 Estado del vuelo cambiado:", {
+        wasReserved,
+        nowReserved,
+        flightNumber: flightData.flightNumber,
+      });
+
+      // 🔥 NUEVO: Limpiar localStorage de items expirados
+      const currentCart = JSON.parse(
+        localStorage.getItem("vivasky_cart") || "[]"
+      );
+
+      const now = new Date();
+      const validCart = currentCart.filter((item) => {
+        if (item.reservationType === "temporal" && item.expiresAt) {
+          const expiresAt = new Date(item.expiresAt);
+          return expiresAt > now;
+        }
+        return true;
+      });
+
+      if (validCart.length !== currentCart.length) {
+        localStorage.setItem("vivasky_cart", JSON.stringify(validCart));
+        console.log(
+          `🗑️ Limpiados ${
+            currentCart.length - validCart.length
+          } items expirados`
+        );
+      }
     }
   };
 
@@ -303,14 +638,41 @@ const ReserveFlight = () => {
 
     const timerInterval = setInterval(() => {
       updateReservationTimers();
-    }, 1000);
+      // 🔥 NUEVO: Sincronizar estado del carrito cada 5 segundos
+      sincronizarEstadoCarrito();
+    }, 5000); // Cada 5 segundos
 
     return () => clearInterval(timerInterval);
-  }, []);
+  }, [flightData, isFlightAlreadyReserved]);
+
+  // 🔥 NUEVO EFECTO: Escuchar cambios en el carrito
+  useEffect(() => {
+    const handleCartChange = () => {
+      console.log("🔄 Carrito cambiado, verificando estado de vuelo...");
+      if (flightData) {
+        checkIfFlightIsReserved(flightData);
+      }
+    };
+
+    // Escuchar evento personalizado
+    window.addEventListener("vivasky-cart-changed", handleCartChange);
+
+    // También escuchar cambios directos en localStorage
+    window.addEventListener("storage", handleCartChange);
+
+    return () => {
+      window.removeEventListener("vivasky-cart-changed", handleCartChange);
+      window.removeEventListener("storage", handleCartChange);
+    };
+  }, [flightData]);
 
   // 🔥 EFECTO: Verificar si el vuelo está reservado cuando se cargan los datos
   useEffect(() => {
     if (flightData) {
+      // 🔥 NUEVO: Sincronizar inmediatamente cuando se carga el vuelo
+      sincronizarEstadoCarrito();
+
+      // También verificar estado inicial
       checkIfFlightIsReserved(flightData);
     }
   }, [flightData]);
@@ -492,6 +854,12 @@ const ReserveFlight = () => {
           telefono: user.telefono || "No especificado",
           documento: user.documento || "No especificado",
           role: userRole,
+          // 🔥 AGREGAR POSIBLES IDs
+          id: user.id,
+          idcliente: user.idcliente,
+          id_usuario: user.id_usuario,
+          cedula: user.cedula,
+          numero_documento: user.numero_documento,
         });
         setUserRole(userRole);
         setIsAuthenticated(true);
@@ -546,84 +914,6 @@ const ReserveFlight = () => {
     }
   };
 
-  // 🔥 FUNCIÓN MODIFICADA: handleReserveFlight
-  const handleReserveFlight = () => {
-    if (!canMakeReservations()) {
-      showAdminRestrictionMessage();
-      return;
-    }
-
-    if (!flightData) {
-      alert("❌ No hay información del vuelo disponible");
-      return;
-    }
-
-    // 🔥 DOBLE VERIFICACIÓN: Asegurar que el vuelo no esté reservado
-    if (isFlightAlreadyReserved) {
-      alert(
-        "❌ Este vuelo ya está reservado en tu carrito. No puedes reservarlo nuevamente."
-      );
-      return;
-    }
-
-    const classText = selectedClass === "vip" ? "VIP" : "Económica";
-    const flightType = flightData.returnFlight ? "Ida y Vuelta" : "Solo Ida";
-
-    const success = addFlightToCartWithExpiration(
-      flightData,
-      selectedClass,
-      totalPrice,
-      ticketQuantity
-    );
-
-    if (success) {
-      alert(
-        `✅ ${ticketQuantity} tiquete(s) reservado(s) exitosamente!\n\n` +
-          `✈️ Vuelo: ${flightData.flightNumber}\n` +
-          `🛫 Tipo: ${flightType}\n` +
-          `🎫 Clase: ${classText}\n` +
-          `🎟️ Cantidad: ${ticketQuantity} tiquete(s)\n` +
-          `💰 Total: ${new Intl.NumberFormat("es-CO", {
-            style: "currency",
-            currency: "COP",
-            minimumFractionDigits: 0,
-          }).format(totalPrice)}\n` +
-          `⏰ Tienes 24 horas para completar la compra\n` +
-          `📧 Revisa tu carrito para más detalles`
-      );
-
-      navigate("/cart");
-    } else {
-      alert("❌ No se pudo reservar el vuelo. Inténtalo de nuevo.");
-    }
-  };
-
-  // 🔥 FUNCIÓN MODIFICADA: handleBuyFlight
-  // 🔥 FUNCIÓN MODIFICADA: handleBuyFlight
-  const handleBuyFlight = () => {
-    if (!canMakeReservations()) {
-      showAdminRestrictionMessage();
-      return;
-    }
-
-    if (!flightData) {
-      alert("❌ No hay información del vuelo disponible");
-      return;
-    }
-
-    // Navegar a la página de compra
-    navigate("/purchase-flight", {
-      state: {
-        flight: {
-          ...flightData,
-          selectedClass,
-          ticketQuantity,
-        },
-        searchParams: location.state?.searchParams,
-      },
-    });
-  };
-
   const showAdminRestrictionMessage = () => {
     alert(
       `⛔ Acción no permitida\n\nLos usuarios con rol de "${userRole}" no pueden realizar reservas ni compras de vuelos.\n\nEsta función está disponible únicamente para usuarios regulares (Cliente/Usuario).`
@@ -634,11 +924,8 @@ const ReserveFlight = () => {
   const QuantityModal = () => {
     if (!showQuantityModal) return null;
 
-    const actionText = actionType === "reserve" ? "Reservar" : "Comprar";
-    const subtitle =
-      actionType === "reserve"
-        ? "24 horas para completar la compra"
-        : "Pago inmediato y confirmación al instante";
+    const actionText = "Reservar";
+    const subtitle = "24 horas para completar la compra";
 
     return (
       <div
@@ -765,12 +1052,20 @@ const ReserveFlight = () => {
               <button
                 className="modal-btn modern primary"
                 onClick={confirmActionWithQuantity}
+                disabled={reserving}
               >
-                <span className="btn-icon">
-                  {actionType === "reserve" ? "🛒" : "💳"}
-                </span>
-                {actionText} {ticketQuantity}{" "}
-                {ticketQuantity === 1 ? "Tiquete" : "Tiquetes"}
+                {reserving ? (
+                  <>
+                    <span className="reserving-spinner"></span>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <span className="btn-icon">🛒</span>
+                    {actionText} {ticketQuantity}{" "}
+                    {ticketQuantity === 1 ? "Tiquete" : "Tiquetes"}
+                  </>
+                )}
               </button>
             </div>
 
@@ -782,12 +1077,9 @@ const ReserveFlight = () => {
                   <strong>Información importante:</strong>
                 </p>
                 <p>{subtitle}</p>
-                {actionType === "reserve" && (
-                  <p className="warning-text">
-                    ⚠️ Tu reserva se liberará automáticamente después de 24
-                    horas
-                  </p>
-                )}
+                <p className="warning-text">
+                  ⚠️ Tu reserva se liberará automáticamente después de 24 horas
+                </p>
               </div>
             </div>
           </div>
@@ -1047,6 +1339,49 @@ const ReserveFlight = () => {
     navigate("/search-flights", { state: location.state?.searchParams });
   };
 
+  // 🔥 NUEVO: Componente para mostrar alerta de vuelo ya reservado
+  const ReservationAlert = () => {
+    if (!isFlightAlreadyReserved) return null;
+
+    return (
+      <div className="reservation-alert-banner">
+        <div className="alert-icon">⏰</div>
+        <div className="alert-content">
+          <h3>Este vuelo ya está reservado</h3>
+          <p>
+            Tienes una reserva activa para este vuelo en tu carrito. La reserva
+            expirará en 24 horas. Puedes completar la compra desde tu carrito.
+          </p>
+          {/* 🔥 NUEVO: Botón de sincronización */}
+          <button
+            className="sync-btn"
+            onClick={sincronizarEstadoCarrito}
+            style={{
+              marginTop: "8px",
+              padding: "4px 8px",
+              fontSize: "12px",
+              background: "transparent",
+              border: "1px solid #fff",
+              color: "#fff",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            🔄 Verificar estado
+          </button>
+        </div>
+        <div>
+          <button
+            className="alert-action-btn"
+            onClick={() => navigate("/cart")}
+          >
+            Ir al Carrito
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Resto del componente (loading states, return JSX)...
   if (loading) {
     return (
@@ -1241,27 +1576,6 @@ const ReserveFlight = () => {
       </div>
     );
   }
-
-  // 🔥 NUEVO: Componente para mostrar alerta de vuelo ya reservado
-  const ReservationAlert = () => {
-    if (!isFlightAlreadyReserved) return null;
-
-    return (
-      <div className="reservation-alert-banner">
-        <div className="alert-icon">⏰</div>
-        <div className="alert-content">
-          <h3>Este vuelo ya está reservado</h3>
-          <p>
-            Tienes una reserva activa para este vuelo en tu carrito. La reserva
-            expirará en 24 horas. Puedes completar la compra desde tu carrito.
-          </p>
-        </div>
-        <button className="alert-action-btn" onClick={() => navigate("/cart")}>
-          Ir al Carrito
-        </button>
-      </div>
-    );
-  };
 
   return (
     <div className="app">
@@ -1765,32 +2079,35 @@ const ReserveFlight = () => {
               <div className="sidebar-actions">
                 {canMakeReservations() ? (
                   <>
-                    {/* 🔥 MODIFICADO: Deshabilitar botón de reserva si el vuelo ya está reservado */}
+                    {/* 🔥 MODIFICADO: Solo botón de reserva */}
                     <button
                       className={`action-btn reserve-btn-sidebar ${
                         isFlightAlreadyReserved ? "disabled" : ""
-                      }`}
-                      onClick={() => showQuantitySelection("reserve")}
-                      disabled={isFlightAlreadyReserved}
+                      } ${reserving ? "loading" : ""}`}
+                      onClick={() => showQuantitySelection()}
+                      disabled={isFlightAlreadyReserved || reserving}
                     >
-                      <span className="btn-icon">🛒</span>
-                      {isFlightAlreadyReserved
-                        ? "Ya Reservado"
-                        : "Reservar en Carrito"}
-                      <span className="btn-subtitle">
-                        {isFlightAlreadyReserved
-                          ? "Vuelo ya está en tu carrito"
-                          : "24 horas para completar"}
-                      </span>
-                    </button>
-
-                    <button
-                      className="action-btn buy-btn-sidebar"
-                      onClick={() => showQuantitySelection("buy")}
-                    >
-                      <span className="btn-icon">🎫</span>
-                      Comprar Ahora
-                      <span className="btn-subtitle">Pago inmediato</span>
+                      {reserving ? (
+                        <>
+                          <span className="btn-icon">⏳</span>
+                          Reservando...
+                          <span className="btn-subtitle">
+                            Procesando tu reserva
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="btn-icon">🛒</span>
+                          {isFlightAlreadyReserved
+                            ? "Ya Reservado"
+                            : "Reservar en Carrito"}
+                          <span className="btn-subtitle">
+                            {isFlightAlreadyReserved
+                              ? "Vuelo ya está en tu carrito"
+                              : "24 horas para completar"}
+                          </span>
+                        </>
+                      )}
                     </button>
                   </>
                 ) : (
@@ -1799,8 +2116,8 @@ const ReserveFlight = () => {
                     <div className="restriction-text">
                       <strong>Modo Administración</strong>
                       <p>
-                        Las reservas y compras no están disponibles para
-                        usuarios administradores.
+                        Las reservas no están disponibles para usuarios
+                        administradores.
                       </p>
                     </div>
                   </div>

@@ -864,3 +864,486 @@
   font-size: 1rem;
   letter-spacing: 2px;
 }
+/* Estilos para mensajes de error detallados */
+.error-alert.detailed {
+  background: linear-gradient(135deg, #fee 0%, #fff5f5 100%);
+  border-left: 4px solid #ff4757;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(255, 71, 87, 0.1);
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.error-icon {
+  font-size: 20px;
+  color: #ff4757;
+}
+
+.error-message {
+  margin: 10px 0;
+  line-height: 1.5;
+  color: #333;
+  font-size: 14px;
+}
+
+.error-retry-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.error-retry-btn:hover {
+  background: linear-gradient(135deg, #ff3838 0%, #ff1e1e 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+}
+
+/* Estilos para información de debug */
+.debug-info {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.reservation-id {
+  background: #e3f2fd;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #1976d2;
+}
+
+/* Mejoras visuales para el resumen */
+.summary-items {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #dee2e6;
+  margin: 10px 0;
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.total-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+/* Estilos para botón de compra */
+.purchase-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.purchase-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #1b5e20 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+}
+
+.purchase-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.purchase-btn.processing {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+/* Estilos para tarjetas guardadas */
+.saved-card-item.selected {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #1976d2;
+}
+
+.card-balance {
+  font-weight: 700;
+  color: #2E7D32;
+  font-size: 14px;
+}
+
+/* Mensaje cuando no hay tarjetas */
+.no-cards-message {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #6c757d;
+}
+/* PurchaseFlight.css - Estilos adicionales */
+
+/* Estilos para mensajes de error detallados */
+.error-alert.detailed {
+  background: linear-gradient(135deg, #fee 0%, #fff5f5 100%);
+  border-left: 4px solid #ff4757;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(255, 71, 87, 0.1);
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.error-icon {
+  font-size: 20px;
+  color: #ff4757;
+}
+
+.error-message {
+  margin: 10px 0;
+  line-height: 1.5;
+  color: #333;
+  font-size: 14px;
+}
+
+.error-retry-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.error-retry-btn:hover {
+  background: linear-gradient(135deg, #ff3838 0%, #ff1e1e 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+}
+
+/* Estilos para información de debug */
+.debug-info {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.reservation-id {
+  background: #e3f2fd;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #1976d2;
+}
+
+/* Mejoras visuales para el resumen */
+.summary-items {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #dee2e6;
+  margin: 10px 0;
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.total-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+/* Estilos para botón de compra */
+.purchase-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.purchase-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049 0%, #1b5e20 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+}
+
+.purchase-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.purchase-btn.processing {
+  background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+/* Estilos para tarjetas guardadas */
+.saved-card-item.selected {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #1976d2;
+}
+
+.card-balance {
+  font-weight: 700;
+  color: #2E7D32;
+  font-size: 14px;
+}
+
+/* Mensaje cuando no hay tarjetas */
+.no-cards-message {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #6c757d;
+}
+
+/* Mejoras para el layout */
+.purchase-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+@media (max-width: 992px) {
+  .purchase-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Estilos para la información del vuelo */
+.flight-summary {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.route-summary {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.cities {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.city-from, .city-to {
+  color: #1976d2;
+}
+
+.arrow {
+  color: #666;
+}
+
+.dates {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.flight-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.class-badge {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Estilos para el formulario de tarjeta */
+.new-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.input-group label {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.input-group input,
+.input-group select {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+/* Estilos para el toggle de método de pago */
+.payment-method-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn.active {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Estilos para el spinner */
+.spinner-small {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+.spinner-large {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(25, 118, 210, 0.3);
+  border-radius: 50%;
+  border-top-color: #1976d2;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Estilos para el notice de seguridad */
+.security-notice {
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #666;
+  font-size: 14px;
+}
+
+.lock-icon {
+  margin-right: 5px;
+}

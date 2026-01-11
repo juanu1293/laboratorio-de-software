@@ -1,3 +1,5 @@
+const db = require("../db");
+
 exports.resumenCompra = async (req, res) => {
   try {
     const { idtiquete } = req.body;
@@ -12,7 +14,7 @@ exports.resumenCompra = async (req, res) => {
         v.origen,
         v.destino,
         v.costo_economico,
-        v.costo_vip
+        v.costo_vip,
         CASE 
           WHEN t.clase = 'vip' THEN v.costo_vip
           WHEN t.clase = 'economica' THEN v.costo_economico
@@ -31,7 +33,6 @@ exports.resumenCompra = async (req, res) => {
 
     const tiquete = result.rows[0];
 
-    // ✅ Buscar pareja
     let idTiquetePareja = null;
     let multiplicador = 1;
 
@@ -51,7 +52,7 @@ exports.resumenCompra = async (req, res) => {
 
       if (pareja.rows.length > 0) {
         idTiquetePareja = pareja.rows[0].idtiquete;
-        multiplicador = 2;
+        multiplicador = 1;
       }
     }
 
@@ -78,20 +79,16 @@ exports.resumenCompra = async (req, res) => {
   }
 };
 
-
 exports.pagarCompra = async (req, res) => {
   const client = await db.connect();
 
   try {
-    const { idcliente, idtiquete, numtarjeta } = req.body;
+    const { idcliente, idtiquete, numtarjeta, metodopago } = req.body;
 
-    if (!idcliente || !idtiquete || !numtarjeta) {
+    if (!idcliente || !idtiquete || !numtarjeta || !metodopago) {
       return res.status(400).json({ mensaje: "Datos incompletos" });
     }
 
-    // ======================================================
-    //  1️⃣ OBTENER DATOS DEL TIQUETE PRINCIPAL
-    // ======================================================
     const tiqueteResult = await client.query(
       `SELECT t.idtiquete, t.idvuelo, t.clase, t.tipo, t.conexion
        FROM usuario.tiquete t
@@ -105,9 +102,6 @@ exports.pagarCompra = async (req, res) => {
 
     const tiquete = tiqueteResult.rows[0];
 
-    // ======================================================
-    //  2️⃣ BUSCAR TIQUETE PAREJA (SI APLICA)
-    // ======================================================
     let idTiquetePareja = null;
     let multiplicador = 1;
 
@@ -126,13 +120,10 @@ exports.pagarCompra = async (req, res) => {
 
       if (parejaResult.rows.length > 0) {
         idTiquetePareja = parejaResult.rows[0].idtiquete;
-        multiplicador = 2;
+        multiplicador = 1;
       }
     }
 
-    // ======================================================
-    //  3️⃣ OBTENER PRECIO DEL VUELO SEGÚN CLASE
-    // ======================================================
     const precioVuelo = await client.query(
       `SELECT costo_economico, costo_vip 
        FROM usuario.vuelo
@@ -147,11 +138,8 @@ exports.pagarCompra = async (req, res) => {
 
     const precioFinal = precioBase * multiplicador;
 
-    // ======================================================
-    //  4️⃣ VALIDAR TARJETA (SALDO, NO MONTO)
-    // ======================================================
     const tarjetaResult = await client.query(
-      `SELECT saldo, tipo 
+      `SELECT saldo
        FROM usuario.tarjeta 
        WHERE numtarjeta = $1`,
       [numtarjeta]
@@ -161,18 +149,14 @@ exports.pagarCompra = async (req, res) => {
       return res.status(404).json({ mensaje: "Tarjeta no encontrada" });
     }
 
-    const { saldo, tipo } = tarjetaResult.rows[0];
+    const { saldo } = tarjetaResult.rows[0];
 
     if (saldo < precioFinal) {
       return res.status(400).json({ mensaje: "Fondos insuficientes" });
     }
 
-    // ======================================================
-    //  ✅ 5️⃣ INICIO DE TRANSACCIÓN
-    // ======================================================
     await client.query("BEGIN");
 
-    // ✅ Descontar saldo UNA SOLA VEZ
     await client.query(
       `UPDATE usuario.tarjeta 
        SET saldo = saldo - $1 
@@ -180,45 +164,43 @@ exports.pagarCompra = async (req, res) => {
       [precioFinal, numtarjeta]
     );
 
-    // ======================================================
-    //  ✅ REGISTRAR PAGO DEL PRIMER TIQUETE
-    // ======================================================
-    await client.query(
-      `INSERT INTO usuario.pago 
-       (idcliente, idtiquete, monto, fechapago, metodopago, estado)
-       VALUES ($1, $2, $3, NOW(), $4, 'pagado')`,
-      [idcliente, idtiquete, precioBase, tipo]
-    );
+    const pagoPrincipal = await client.query(
+  `INSERT INTO usuario.pago 
+   (idcliente, idtiquete, monto, fechapago, metodopago, estado)
+   VALUES ($1, $2, $3, NOW(), $4, 'pagado')
+   RETURNING idpago`,
+  [idcliente, idtiquete, precioBase, 'tarjeta']
+);
 
-    // ✅ Marcar TIQUETE como PAGADO
     await client.query(
       `UPDATE usuario.tiquete 
-       SET estado = 'pagado' 
+       SET estado = 'comprado' 
        WHERE idtiquete = $1`,
       [idtiquete]
     );
 
-    // ✅ Quitar del carrito
     await client.query(
       `DELETE FROM usuario.carrito 
        WHERE idtiquete = $1`,
       [idtiquete]
     );
 
-    // ======================================================
-    //  ✅ SI EXISTE PAREJA, TAMBIÉN SE PROCESA
-    // ======================================================
+    let pagoParejaId = null;
+
     if (idTiquetePareja) {
-      await client.query(
-        `INSERT INTO usuario.pago 
-         (idcliente, idtiquete, monto, fechapago, metodopago, estado)
-         VALUES ($1, $2, $3, NOW(), $4, 'pagado')`,
-        [idcliente, idTiquetePareja, precioBase, tipo]
-      );
+      const pagoPareja = await client.query(
+  `INSERT INTO usuario.pago 
+   (idcliente, idtiquete, monto, fechapago, metodopago, estado)
+   VALUES ($1, $2, $3, NOW(), $4, 'pagado')
+   RETURNING idpago`,
+  [idcliente, idTiquetePareja, precioBase, 'tarjeta']
+);
+
+      pagoParejaId = pagoPareja.rows[0].idpago;
 
       await client.query(
         `UPDATE usuario.tiquete 
-         SET estado = 'pagado' 
+         SET estado = 'comprado' 
          WHERE idtiquete = $1`,
         [idTiquetePareja]
       );
@@ -230,24 +212,81 @@ exports.pagarCompra = async (req, res) => {
       );
     }
 
-    // ======================================================
-    //  ✅ 6️⃣ CONFIRMAR TRANSACCIÓN
-    // ======================================================
     await client.query("COMMIT");
 
     return res.json({
-      mensaje: "✅ Pago realizado correctamente",
+      mensaje: "Pago realizado correctamente",
       total_pagado: precioFinal,
+      id_pago_principal: pagoPrincipal.rows[0].idpago,
+      id_pago_pareja: pagoParejaId,
       tiquete_principal: idtiquete,
       tiquete_pareja: idTiquetePareja
     });
 
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("❌ Error en pago:", error.message);
+    console.error("Error en pago:", error.message);
     res.status(500).json({ mensaje: "Error al procesar el pago" });
   } finally {
     client.release();
   }
 };
 
+
+exports.obtenerHistorialCompras = async (req, res) => {
+  try {
+    const { idcliente } = req.params;
+    
+    console.log("📋 Obteniendo historial de compras para cliente:", idcliente);
+
+    // Consulta simple para obtener las compras realizadas
+    const query = `
+      SELECT 
+        p.idpago,
+        p.idtiquete,
+        p.monto,
+        p.fechapago,
+        p.metodopago,
+        p.estado,
+        t.clase,
+        v.origen,
+        v.destino,
+        v.fecha_salida,
+        v.fecha_llegada
+      FROM usuario.pago p
+      INNER JOIN usuario.tiquete t ON t.idtiquete = p.idtiquete
+      INNER JOIN usuario.vuelo v ON v.id_vuelo = t.idvuelo
+      WHERE p.idcliente = $1
+        AND p.estado = 'pagado'
+      ORDER BY p.fechapago DESC
+      LIMIT 20
+    `;
+
+    const result = await db.query(query, [idcliente]);
+
+    console.log(`✅ ${result.rows.length} compras encontradas`);
+
+    // Formatear respuesta simple
+    const compras = result.rows.map(compra => ({
+      id_compra: compra.idpago,
+      id_tiquete: compra.idtiquete,
+      fecha_compra: compra.fechapago,
+      monto: Number(compra.monto),
+      metodo_pago: compra.metodopago || 'tarjeta',
+      estado: compra.estado,
+      clase: compra.clase,
+      origen: compra.origen,
+      destino: compra.destino,
+      fecha_vuelo: compra.fechasalida
+    }));
+
+    res.json(compras);
+
+  } catch (error) {
+    console.error("❌ Error obteniendo historial de compras:", error);
+    res.status(500).json({ 
+      mensaje: "Error al obtener el historial de compras",
+      error: error.message 
+    });
+  }
+};
